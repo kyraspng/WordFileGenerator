@@ -1,70 +1,83 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
-import numpy as np
 import pandas as pd
 from docx import Document
 
 
-# # Functions
+class LogisticInfoWord:
+    """
+    用于生成段落格式为：
+    “池州马衙站(舟山)  8月7日/ 7点-优卓
+    车牌号：浙L29137/浙LK833挂
+    驾驶员：李大成13946173662
+    押运员：纪红霞13946050515
+    承运商：舟山欣远运输有限公司（自有）” 的word文档；
+    复思用。
+    """
 
-# In[2]:
+    def __init__(self, file):
+        self.file = file
 
+    def read_file(self):
+        """read table"""
+        try:
+            df = pd.read_excel(self.file, header=1)
+        except Exception as e:
+            print(f"Error reading the Excel file: {e}")
+            return None
+        return df
 
-def reformat_date(date_str):
-    """reformat python datetime to required string format"""
-    month, day, time = date_str.split('-')
-    return f"{int(month)}月{int(day)}日/ {int(time)}点"
+    @staticmethod
+    def reformat_date(date_str):
+        """reformat python datetime to required string format"""
+        month, day, time = date_str.split('-')
+        return f"{int(month)}月{int(day)}日/ {int(time)}点"
 
+    def date_formatting(self):
+        """Execute the reformat_date function"""
+        df = self.read_file()
 
-# # Read DataFrame
+        if df is not None:
+            # df['计划日期'] = pd.to_datetime(df['计划日期'])
+            df['计划日期'] = df['计划日期'].dt.strftime('%m-%d-%H')
+            df['计划日期'] = df['计划日期'].apply(self.reformat_date)
 
-# In[3]:
+        return df
 
+    def generate_paragraphs(self):
+        """generate paragraphs"""
+        df = self.date_formatting()
 
-"""read table"""
-df = pd.read_excel('计划汇集报送.xlsx', header=1)
+        doc = Document()
 
+        for index, row in df.iterrows():
+            platform_name = row['到站名称']
+            station_name = row['液源']
+            planning_datetime = row['计划日期']
+            customer_name = row['计划所属客户名称']
+            car_number = row['车牌号/挂车号']
+            driver_info = row['司机姓名/电话']
+            supercargo_info = row['押运员姓名/电话']
+            logistic_company = row['所属物流公司名称']
 
-# # Feature engineering
+            formatted_paragraph = (f"{platform_name}（{station_name}） {planning_datetime}-{customer_name}\n"
+                                   f"车牌号：{car_number}\n"
+                                   f"驾驶员：{driver_info}\n"
+                                   f"押运员：{supercargo_info}\n"
+                                   f"承运商：{logistic_company}")
 
-# In[4]:
+            doc.add_paragraph(formatted_paragraph)
+        return doc
 
+    def save_docx(self, save_path='test output.docx'):
+        """download word file"""
+        doc = self.generate_paragraphs()
+        doc.save(save_path)
 
-# Reformat date
-df['计划日期'] = df['计划日期'].dt.strftime('%m-%d-%H')
-df['计划日期'] = df['计划日期'].apply(reformat_date)
+if __name__ == "__main__":
+    logistic_info = LogisticInfoWord('计划汇集报送（暂定）.xlsx')
+    logistic_info.save_docx()
 
-
-# In[5]:
-
-
-doc = Document()
-
-for index, row in df.iterrows():
-    platform_name = row['到站名称']
-    station_name = row['液源']
-    planning_datetime = row['计划日期']
-    customer_name = row['计划所属客户名称']
-    car_number = row['车牌号/挂车号']
-    driver_info = row['司机姓名/电话']
-    supercargo_info = row['押运员姓名/电话']
-    
-    formatted_paragraph = (f"{platform_name}（{station_name}） {planning_datetime}-{customer_name}\n"
-    f"车牌号：{car_number}\n"
-    f"驾驶员：{driver_info}\n"
-    f"押运员：{supercargo_info}")
-    
-    doc.add_paragraph(formatted_paragraph)
-
-
-# In[6]:
-
-
-doc.save('test output.docx')
 
 
 # In[ ]:
