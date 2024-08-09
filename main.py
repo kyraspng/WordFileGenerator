@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (QApplication, QGridLayout, QLabel, QFileDialog, QPushButton, QVBoxLayout, QLineEdit,
-                             QWidget)
+                             QWidget, QMessageBox)
 import sys
 import os
-
+import functions
+from pathlib import Path
 
 class WordFileGenerator(QWidget):
 
@@ -10,6 +11,8 @@ class WordFileGenerator(QWidget):
         super().__init__()
 
         self.initUI()
+        self.plans_file_paths = []  # Instance variable to store plans file paths
+        self.trucks_file_paths = []  # Instance variable to store trucks file paths
 
     def initUI(self):
         # layout = QVBoxLayout()
@@ -31,7 +34,8 @@ class WordFileGenerator(QWidget):
 
         # 选择选择《计划汇集报送》文件button
         self.plans_files_selected_button = QPushButton("选择计划汇集报送excel", self)
-        self.plans_files_selected_button.clicked.connect(lambda: self.showFileDialog(self.plans_files_line_edit))
+        self.plans_files_selected_button.clicked.connect(lambda: self.showFileDialog(self.plans_files_line_edit,
+                                                                                     'plans'))
         self.plans_files_selected_button.setFixedWidth(160)
 
         # Line that displays the name of the selected 《车辆信息》文件
@@ -40,8 +44,9 @@ class WordFileGenerator(QWidget):
 
         # 选择《车辆信息汇集》文件button
         self.trucks_files_selected_button = QPushButton("选择车辆信息excel", self)
-        self.trucks_files_selected_button.clicked.connect(lambda: self.showFileDialog(self.trucks_files_line_edit))
-        self.trucks_files_selected_button.setFixedWidth(150)
+        self.trucks_files_selected_button.clicked.connect(lambda: self.showFileDialog(self.trucks_files_line_edit,
+                                                                                      'trucks'))
+        self.trucks_files_selected_button.setFixedWidth(160)
 
         # Execution button
         self.execution_button = QPushButton("点击运行")
@@ -54,17 +59,26 @@ class WordFileGenerator(QWidget):
         grid.addWidget(self.trucks_files_selected_button, 1, 1)
         grid.addWidget(self.execution_button, 2, 0, 1, 2)
 
+    def showFileDialog(self, line_edit, file_type):
+        try:
+            file_dialog = QFileDialog(self)
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles) # The users can select multiple existing files
+            if file_dialog.exec(): # Executes the dialog. If the user selects a file and clicks "Open," it returns True.
+                file_paths = file_dialog.selectedFiles() # The selectedFiles() method returns a list of selected files.
 
-    def showFileDialog(self, line_edit):
-        file_dialog = QFileDialog(self)
-        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles) # The users can select multiple existing files
-        if file_dialog.exec(): # Executes the dialog. If the user selects a file and clicks "Open," it returns True.
-            file_paths = file_dialog.selectedFiles() # The selectedFiles() method returns a list of selected files.
-            # Extract file names only
-            file_names = [os.path.basename(file_path) for file_path in file_paths]
-            display_text = "; ".join(file_names)
-            line_edit.setText(display_text)
-            # self.adjustLineEditSize(line_edit, display_text)
+                # Store file paths in the appropriate instance variable
+                if file_type == "plans":
+                    self.plans_file_paths = file_paths
+                elif file_type == "trucks":
+                    self.trucks_file_paths = file_paths
+
+                # Extract file names only
+                file_names = [os.path.basename(file_path) for file_path in file_paths]
+                display_text = "; ".join(file_names)
+                line_edit.setText(display_text)
+                # self.adjustLineEditSize(line_edit, display_text)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"表格错误，请重新选择")
 
     def adjustLineEditSize(self, line_edit, text):
         """不调整长度了"""
@@ -76,18 +90,44 @@ class WordFileGenerator(QWidget):
 
     def plansSumWordFileGenerator(self):
         """计划汇集报送.xlsx word generator"""
-        pass
+        # Get the desktop path
+        desktop_path = Path.home() / 'Desktop'
+        if self.plans_file_paths:
+            for filepath in self.plans_file_paths:
+                filename_with_extension = os.path.basename(filepath)
+                file_name, file_extension = os.path.splitext(filename_with_extension)
+                generator = functions.PlansSumWordFileGenerate(filepath)
+
+                generator.save_docx(desktop_path / file_name)
 
     def trucksSumWordFileGenerator(self):
         """车辆信息.xlsx word generator"""
-        pass
+        desktop_path = Path.home() / 'Desktop'
+        if self.trucks_file_paths:
+            for filepath in self.trucks_file_paths:
+                filename_with_extension = os.path.basename(filepath)
+                file_name, file_extension = os.path.splitext(filename_with_extension)
+                generator = functions.TrucksWordFileGenerate(filepath)
+
+                generator.save_docx(desktop_path / file_name)
 
     def generatorAll(self):
-        self.plansSumWordFileGenerator()
-        self.trucksSumWordFileGenerator()
+        plans_success = False
+        trucks_success = False
+        try:
+            self.plansSumWordFileGenerator()
+            plans_success = True
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"表格错误，请重新选择")
 
-        pass
+        try:
+            self.trucksSumWordFileGenerator()
+            trucks_success = True
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"表格错误，请重新选择")
 
+        if plans_success and trucks_success:
+            QMessageBox.information(self, "Success", "所有文档已生成并保存在桌面。")
 
 
 def main():
@@ -95,6 +135,7 @@ def main():
     demo = WordFileGenerator()
     demo.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

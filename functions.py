@@ -4,7 +4,7 @@ import pandas as pd
 from docx import Document
 
 
-class LogisticInfoWord:
+class PlansSumWordFileGenerate:
     """
     用于生成段落格式为：
     “池州马衙站(舟山)  8月7日/ 7点-优卓
@@ -74,9 +74,58 @@ class LogisticInfoWord:
         doc = self.generate_paragraphs()
         doc.save(save_path)
 
+
+class TrucksWordFileGenerate:
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+
+    def load_dataframe(self):
+        """read table"""
+        try:
+            df = pd.read_excel(self.filepath, dtype={'电话': str, '电话.1': str})
+            df = df.dropna().reset_index(drop=True)
+        except Exception as e:
+            print(f"Error reading the Excel file: {e}")
+            return None
+        return df
+
+    def generate_text(self):
+        """generate paragraphs"""
+        df = self.load_dataframe()
+
+        doc = Document()
+
+        for index, row in df.iterrows():
+            car_number = row['车号']
+            guache_number = row['挂车号']
+            driver_name = row['驾驶员']
+            driver_phone_number = row['电话']
+            supercargo_name = row['押运员']
+            supercargo_phone_number = row['电话.1']
+            logistic_company = row['物流公司']
+
+            formatted_paragraph = (f"车号：{car_number}\n"
+                                   f"挂车号：{guache_number}\n"
+                                   f"驾驶员：{driver_name} {driver_phone_number}\n"
+                                   f"押运员：{supercargo_name} {supercargo_phone_number}\n"
+                                   f"{logistic_company}")
+
+            doc.add_paragraph(formatted_paragraph)
+        return doc
+
+    def save_docx(self, save_path='test output.docx'):
+        """download file"""
+        doc = self.generate_text()
+        doc.save(save_path)
+
+
 if __name__ == "__main__":
-    logistic_info = LogisticInfoWord('计划汇集报送（暂定）.xlsx')
-    logistic_info.save_docx()
+    trucks_info = TrucksWordFileGenerate('车辆信息.xlsx')
+    trucks_info.save_docx('车辆信息.docx')
+
+    logistic_info = PlansSumWordFileGenerate('计划汇集报送（暂定）.xlsx')
+    logistic_info.save_docx('计划汇集报送（暂定）.docx')
 
 
 
